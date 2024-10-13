@@ -87,6 +87,35 @@ _installCentosPackages() {
       fi
     fi
 }
+_installOpenSuseCleanUp() {
+    zypper -n clean --all
+    zypper -n packages --unneeded \
+        | awk -F'|' 'NR==0 || NR==1 || NR==2 || NR==3 || NR==4 {next} {print $3}' \
+        | grep -v Name \
+        | xargs -r zypper -n remove --clean-deps;
+}
+_installOpenSusePackages() {
+    zypper refresh
+    zypper -n update
+    zypper -n install \
+        time  \
+        ruby \
+        ruby-devel
+        
+    if ! [ -x "$(command -v klayout)" ]; then
+      zypper -n install -D  https://www.klayout.org/downloads/openSUSE_Leap_15/klayout-${klayoutVersion}-0.x86_64.rpm
+    else
+      currentVersion=$(klayout -v | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')
+      if _versionCompare $currentVersion -ge $klayoutVersion; then
+        echo "KLayout version greater than or equal to ${klayoutVersion}"
+      else
+        echo "KLayout version less than ${klayoutVersion}"
+        sudo zypper -n remove  klayout
+        zypper -n install  https://www.klayout.org/downloads/openSUSE_Leap_15/klayout-${klayoutVersion}-0.x86_64.rpm
+      fi
+    fi
+
+}
 
 _installUbuntuCleanUp() {
     apt-get autoclean -y
@@ -339,6 +368,19 @@ case "${os}" in
         if [[ "${option}" == "base" || "${option}" == "all" ]]; then
             _installCentosPackages
             _installCentosCleanUp
+        fi
+        if [[ "${option}" == "common" || "${option}" == "all" ]]; then
+            _installCommon
+        fi
+        ;;
+    "openSUSE Leap" )
+        if [[ ${CI} == "yes" ]]; then
+            echo "WARNING: Installing CI dependencies is only supported on Ubuntu 22.04" >&2
+        fi
+        _installORDependencies
+        if [[ "${option}" == "base" || "${option}" == "all" ]]; then
+            _installOpenSusePackages
+            _installOpenSuseCleanUp
         fi
         if [[ "${option}" == "common" || "${option}" == "all" ]]; then
             _installCommon
